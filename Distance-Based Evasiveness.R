@@ -1,25 +1,13 @@
-##############################################################################
-#O DATASET DE TESTE ESTÁ SENDO O ARQUIVO MEETINGS, LOCALIZADO NA PASTA PICTURES, DO MEU DESKTOP PRINCIPAL
-##############################################################################
+##Importing meetings data
+MEETINGS_ORIGINAL <- MEETINGS #backup of my original dataset
+MEETINGS <- na.omit(MEETINGS) #omiting NAs
 
-##Importando ASM como MEETINGS
-
-MEETINGS_ORIGINAL <- MEETINGS #backup copy of my original dataset
-MEETINGS <- na.omit(MEETINGS) #limpando todos os NAs
-
-##############################################################################
-#EVASIVE SHAREHOLDER MEETINGS: DISTANCE-BASED MEASURES
-##############################################################################
-
-
-##CREATING HEADQUARTERS (INDEPENDENT VARIABLE)
+##Creating HEADQUARTERS 
 #HEADQUARTERS is an indicator variable that equals 1 one if the annual meeting takes place at company headquarters in a given year and 0 otherwise.
 #HQ and ZIPMEET are the main inputs, where HQ = headquarters ZIP Code and ZIPMEET = event location ZIP Code.
-
 MEETINGS$HEADQUARTERS <- ifelse(MEETINGS$HQ == MEETINGS$ZIPMEET, 1, 0) #if HQ ZIP code = Meeting ZIP Code, 1. Otherwise, 0.
 
-
-##CREATING LNDISTANCE (INDEPENDENT VARIABLE)
+##Creating LNDISTANCE
 #"distance" is the raw distance, in miles, between HQ and event' location, and LNDISTANCE is the natural logarithm of one plus the distance, in miles, between company headquarters and the annual meeting location, based upon ZIP code data.
 library(zipcodeR)
 DISTANCE_temp <- zip_distance(MEETINGS$HQ, MEETINGS$ZIPMEET, lonlat = TRUE, units = "miles") #calculating the raw distance (miles) between HQ and meeting location.
@@ -29,9 +17,8 @@ DISTANCE_temp$LNDISTANCE <- log((1+DISTANCE_temp$distance)) #creating LNDISTANCE
 MEETINGS <-cbind(MEETINGS, DISTANCE_temp) #merging LNDISTANCE with my main dataframe
 rm(DISTANCE_temp) #drop temporary dataframe
 
-
-##CREATING REMOTE (INDEPENDENT VARIABLE)
-#REMOTE is an indicator variable that equals one if the annual shareholder meeting takes place at a remote location (both REMOTE_HQ = 1 and REMOTE_AIRPORT = 1, simultaneously)
+##Creating REMOTE
+#REMOTE is an indicator variable that equals 1 if the annual shareholder meeting takes place at a remote location (both REMOTE_HQ = 1 and REMOTE_AIRPORT = 1, simultaneously)
 
 #Creating REMOTE_HQ
 #Assigning NA if is NA, 1 if the distance between event and headquarters is bigger than 50 miles and 0 otherwise.
@@ -50,13 +37,9 @@ remote_hq_func <- function(x){
 
 MEETINGS$REMOTE_HQ <- lapply(MEETINGS$distance,remote_hq_func) #create REMOTE_HQ column on my main dataframe
 
-
 #Converting event' location ZIP Codes to geographic coordinates (latitude and longitude)
 
-
 df <- MEETINGS
-
-
 library(zipcodeR)
 
 latitudes <- list()
@@ -97,7 +80,6 @@ rm(lat) #drop useless df
 rm(lng) #drop useless df
 rm(df) #drop useless df
 
-
 #Identifying nearest large hub airports to the event
 #Obtanining the distance between event' location and the nearest large hub airport
 #API: Amadeus Airports, token required
@@ -121,7 +103,7 @@ iatas <- list()
 for( i in 1:nrow(df) ){
   if(!is.na(df[i, "lat_ZIPMEET"])&!is.na(df[i, "lng_ZIPMEET"])& !is.na(df[i, "REMOTE_HQ"]) & df[i,"REMOTE_HQ"]==1){
     query <- sprintf("https://test.api.amadeus.com/v1/reference-data/locations/airports?latitude=%s&longitude=%s&radius=500&sort=relevance", df[i, "lat_ZIPMEET"], df[i, "lng_ZIPMEET"])
-    getdata <- GET(url=query, add_headers(Authorization="Bearer OI2tL9GX5VhwKGzNHjCp8R1xkAlv"))
+    getdata <- GET(url=query, add_headers(Authorization="Bearer %%YOURTOKEN%%"))
     body <- fromJSON(content(getdata,type="text", encoding = "UTF-8"))
     print(getdata[["status_code"]])
     
@@ -162,9 +144,7 @@ rm(df) #drop useless
 rm(getdata) #drop useless 
 
 
-###WORKING DATA####
 ##Creating REMOTE
-#Under construction (necessário verificar)
 kmtomiles <- function(x){
   if(is.na(x)){
     return(x)
@@ -183,20 +163,13 @@ MEETINGS$REMOTE <- ifelse(MEETINGS$REMOTE_HQ == 0 & is.na(MEETINGS$REMOTE_AIRPOR
                                         ifelse(is.na(MEETINGS$REMOTE_HQ), NA,
                                                ifelse(is.na(MEETINGS$REMOTE_AIRPORT), 0, NA)))))
 
-
-###WORKING DATA####
-
-
-
-#I will employ the following procedures to develop TRAVEL (INDEPENDENT VARIABLE)
+#I will employ the following procedures to develop TRAVEL 
 #Obtanining the distance between headquarters' location and the nearest large hub airport
 #Converting headquarters' location ZIP Codes to geographic coordinates (latitude and longitude)
 #API: Amadeus Airports, token required
 ###não pode ter nada na coluna HQ diferente de VIRTUAL ou ZIP Code. Se tiver endereço, por ex. vai falhar.
 
-
 df <- MEETINGS 
-
 
 library(zipcodeR)
 
@@ -238,10 +211,8 @@ rm(lng) #drop useless
 rm(df) #drop useless 
 
 
-
 library(httr)
 library(rjson)
-
 
 df <- MEETINGS
 
@@ -254,7 +225,7 @@ iatas <- list()
 for( i in 1:nrow(df) ){
   if(!is.na(df[i, "lat_HQ"])&!is.na(df[i, "lng_HQ"])& !is.na(df[i, "distance"])& df[i,"distance"]>=250){
     query <- sprintf("https://test.api.amadeus.com/v1/reference-data/locations/airports?latitude=%s&longitude=%s&radius=500&sort=relevance", df[i, "lat_HQ"], df[i, "lng_HQ"])
-    getdata <- GET(url=query, add_headers(Authorization="Bearer GnucU1DyhmeJQkROL7lF7gYXBkea"))
+    getdata <- GET(url=query, add_headers(Authorization="Bearer %%YOURTOKEN%%"))
     body <- fromJSON(content(getdata,type="text", encoding = "UTF-8"))
     print(getdata[["status_code"]])
     if (getdata[["status_code"]] == 200 && length(body[["data"]])>0){
@@ -284,8 +255,8 @@ MEETINGS$score_travelers_origin <- st
 MEETINGS$datailed_name_origin <- dn
 MEETINGS$IATA_origin <- iatas
 
-backups_requisicoes_origin <- MEETINGS #backup copy to avoid new data requests
-backups_requisicoes_origin <- backups_requisicoes_origin[, 29:ncol(backups_requisicoes_origin)] #backup copy to avoid new data requests
+backups_requisicoes_origin <- MEETINGS #backup to avoid new data requests
+backups_requisicoes_origin <- backups_requisicoes_origin[, 29:ncol(backups_requisicoes_origin)] #backup to avoid new data requests
 
 rm(distances) #drop useless 
 rm(sf) #drop useless 
@@ -297,48 +268,36 @@ rm(df) #drop useless
 rm(getdata) #drop useless 
 
 
+##Creating TRAVEL 
+#Creating a variable to indicate whether I should hand-collect driving times (for distances between 2 and 250 miles, driving time between HQ and ZIPMEET // for distances higher than 250 miles, driving time between HQ and nearest large airport and driving time between ZIPMEET and nearest large airport)  
 
-##CREATING TRAVEL (INDEPENDENT VARIABLE)
-
-#Criando variável para preparar coleta manual de driving times (para casos entre 2 e 250...) e para casos >250 (driving time entre HQ e aeroport do HQ e aeroporto do evento e evento)
-
-#driving_time_direct representa o tempo de direção estimado entre o HQ e o ZIPMEET. Tempo direto que será utilizado para criar a variável TRAVELTIME.
+#driving_time_direct represents the estimated driving time between HQ and ZIPMEET. "todo" to hand-collect data.
 MEETINGS$driving_time_direct <- ifelse(MEETINGS$distance >= 2 & MEETINGS$distance < 250, "todo", NA)
 
-
-#criando tempos de deslocamento entre HQ e aeroporto próximo a HQ
-#criando tempos de deslocamento entre evento e aeroporto próximo ao destino
-#coletas manuais todo
+#driving_time_HQ_to_IATA_origin: driving time between HQ and nearest large airport
+#driving_time_ZIPMEET_to_IATA_destination: driving time between ZIPMEET and nearest large airport
+#"todo" to hand-collect data.
 MEETINGS$driving_time_HQ_to_IATA_origin <- ifelse(MEETINGS$distance >= 250, "todo", NA)
 MEETINGS$driving_time_ZIPMEET_to_IATA_destination <- ifelse(MEETINGS$distance >= 250, "todo", NA)
 
-#EXPORTANDO DATAFRAME PARA COLETAS MANUAIS DE TEMPOS DE DIREÇÃO!!
-#"TODO" SIGNIFICA ESPAÇO A PREENCHER, HAND-COLLECTED.
+#Exporting file to hand-collect data on driving times
+MEETINGS_EXPORTAR <- apply(MEETINGS,2,as.character) 
+write.csv(MEETINGS_EXPORTAR, "data/MEETINGS_COLETA_DRIVING.csv", row.names = TRUE)
 
 
-###EXPORTAR ARQUIVO PARA COLETA MANUAL...
-
-MEETINGS_EXPORTAR <- apply(MEETINGS,2,as.character) #GAMBIARRA
-write.csv(MEETINGS_EXPORTAR, "MEETINGS_COLETA_DRIVING.csv", row.names = TRUE)
-
-###DETALHES: DADOS DO ARQUIVO MEETING_HORAS JÁ ESTÁ EM HORAS E JÁ TEM DADOS P/ CONTROLES...
-### APÓS PREENCHER, IMPORTAR... "MEETINGS_COLETA_DRIVING_DONE_HORAS" no arquivo MEETINGS
+#Importing file with hand-collected data. Filename: MEETINGS_COLETA_DRIVING_DONE_HORAS
+#Data collected: "hours" // + Controls.
 
 MEETINGS$driving_time_HQ_to_IATA_origin <- as.numeric(MEETINGS$driving_time_HQ_to_IATA_origin)
 MEETINGS$driving_time_ZIPMEET_to_IATA_destination <- as.numeric(MEETINGS$driving_time_ZIPMEET_to_IATA_destination)
 
 
 
-#Calculando distância entre IATAS...
+#Calculating distance between IATAS
+#A list of valid IATAS is necessary. Filename: airport-codes_csv based on https://datahub.io/core/airport-codes#data
 
-#FUNCIONANDO
-
-##preciso baixar uma lista para #valid_IATA_codes 
-###O ARQUIVO DE REFERENCIA FOI OBTIDO DO GITHUB
-##https://datahub.io/core/airport-codes#data
-
-#Importando dados sobre IATAs válidos...
-airportcodes <- read.csv("G:/PhD/PhD Dissertation/1 Evasive shareholder meetings and stock price crash risk/Routines and Data/IATA/airport-codes_csv.csv")
+#Importing data on valid IATAS
+airportcodes <- read.csv("data/airport-codes_csv.csv")
 valid_IATA_codes <- airportcodes$iata_code
 
 
@@ -357,11 +316,11 @@ MEETINGS$distances_IATAS <- sapply(1:nrow(MEETINGS), function(i) {
 })
 
 
-#TEM QUE TER TUDO NUMERICO NAQUELES DRIVING TIMES ALI ACIMA...
+#Driving times should be numeric to properly work
 MEETINGS$flight_TRAVEL_TIME <- ((MEETINGS$distances_IATAS/800)+0.5+1.5)+MEETINGS$driving_time_HQ_to_IATA_origin + MEETINGS$driving_time_ZIPMEET_to_IATA_destination
 
 
-#CRIANDO A VARIÁVEL TRAVEL
+#Creating TRAVEL variable
 functiontraveltime <- function(row){
   if(is.na(row["distance"])){
     return(NA)
@@ -384,63 +343,45 @@ functiontraveltime <- function(row){
 }
 
 
-
 MEETINGS$TRAVEL <- apply(MEETINGS,1,functiontraveltime)
 MEETINGS$TRAVEL <- as.numeric(MEETINGS$TRAVEL)
 
 
-##Variáveis de controle... (NÃO PARECE NECESSÁRIO)
-#MEETINGS$ib <- as.numeric(MEETINGS$ib)
-#MEETINGS$seq <- as.numeric(MEETINGS$seq)
-# MEETINGS$dt <- as.numeric(MEETINGS$dt)
-# MEETINGS$at <- as.numeric(MEETINGS$at)
-# MEETINGS$mkvalt <- as.numeric(MEETINGS$mkvalt)
-# MEETINGS$xrd <- as.numeric(MEETINGS$xrd)
-
-
-###SIGMA: Desvio-padrão dos retornos semanais durante o ano, já está na base CRSP
-###RET: Média de retornos de ações no ano, já está na base CRSP (MULTIPLICADO POR 100!)
-###ROA:
+##Creating control-variables
+#SIGMA: stock-price crash risk file.
+#RET: stock-price crash risk file.
+#ROA
 MEETINGS$ROA <- MEETINGS$ib / MEETINGS$at
-###SIZE:
+#SIZE
 MEETINGS$SIZE <- log(MEETINGS$mkvalt)
-#MTB:
+#MTB
 MEETINGS$MTB <- MEETINGS$mkvalt / MEETINGS$seq
-#LEV:
+#LEV
 MEETINGS$LEV <- MEETINGS$dt / MEETINGS$at
-#RD:
+#RD
 MEETINGS$RD <- MEETINGS$xrd / MEETINGS$at
 
-
-
-###CRIANDO DUMMIES MANUALMENTE
-#alternativa é criar via FACTOR!
-#SIC
-#MEETINGS$twodigitsic <- substr(MEETINGS$sic, start = 1, stop = 2)
-
-#library(dplyr)
-#SIC_dummies <- model.matrix(~ factor(twodigitsic) - 1, data = MEETINGS)
-#colnames(SIC_dummies) <- paste0("SIC_", levels(factor(MEETINGS$twodigitsic)))
-#dados_com_dummies <- bind_cols(MEETINGS, SIC_dummies)
-
-#MEETINGS <- dados_com_dummies
-#### FAZENDO MERGER COM CRSP...
-
-#IMPORTAR CRSP_CONSOLIDATED (NA VERDADE, JÁ RODAR A PARTIR DELE)
-#CRSP <- CRSP_consolidated
-###LEMBRAR QUE A BASE ASM JÁ DEVERÁ CONTER TODAS AS VARIÁVEIS NECESSÁRIAS
+##Importing Stock Price Crash Risk file. Filename: CRSP_consolidated  
+##ASM should contain control-variables
 CRSP <- CRSP_consolidated
 
 ASM <- MEETINGS
 CRSP$fyear <- format(as.Date(CRSP$datefix), "%Y")
 CRSP$fyear <- as.numeric(CRSP$fyear)
-CRSP$CUSIPcorrigido <- substr(CRSP$CUSIP, 1, 6) ##considerando um match de 6 dígitos
-ASM$CUSIPcorrigido <- substr(ASM$cusip, 1, 6) #considerando um match de 6 dígitos
+CRSP$CUSIPcorrigido <- substr(CRSP$CUSIP, 1, 6) #6-digit match
+ASM$CUSIPcorrigido <- substr(ASM$cusip, 1, 6) #6-digit match
 DF_MATCH <- merge(ASM, CRSP, by = c("CUSIPcorrigido", "fyear"))
 DF_MATCH <- data.frame(DF_MATCH)
 
 
-#################WORKINGGG
+  
+  
+  
+  
+  
+  
+##ANALYZES 
+  
 
 ####CRIANDO DATAFRAME PARA ESTATÍSTICA DESCRITIVA E REGRESSÕES
 DF_MATCH$Days <- DF_MATCH$Dias
